@@ -168,6 +168,63 @@ curl -fsSL https://raw.githubusercontent.com/dill-pickles/bulk-reminders/main/bu
 
 ---
 
+### 10. ENHANCEMENT: Better progress indicator during batch add
+**Status:** Not started
+
+**Problem:** Current fix shows static "Adding X reminder(s)..." message during batch operation. For longer lists, users may think the app has frozen or timed out since there's no visual feedback that work is happening.
+
+**Current behavior:**
+```
+Adding to "Reminders":
+  Adding 52 reminder(s)...
+  [long pause with no feedback]
+  [1/52] ✓ First reminder...
+```
+
+**Ideas to explore:**
+- **Spinner animation:** Rotating `|/-\` or dots `...` that animate while waiting
+- **Elapsed time:** Show "Adding 52 reminder(s)... (3s)" with updating seconds
+- **Pulsing dots:** `Adding...` → `Adding....` → `Adding.....` → `Adding...`
+- **Progress bar:** `[████░░░░░░] 40%` (would require switching from batch to sequential adds - performance tradeoff)
+
+**Constraint:** Batch AppleScript operation doesn't report per-item progress, so true progress bar would require architectural change.
+
+**Location:** `cmd_add()` function, line ~258
+
+---
+
+### 11. ENHANCEMENT: Welcome message after install
+**Status:** Not started
+
+**Problem:** After installation, users just get a blank terminal. A welcome message would provide a better first-run experience.
+
+**Ideas:**
+- Show app name with ASCII art or styled text
+- Brief usage instructions
+- Link to documentation/README
+- Example command to try
+
+**Example:**
+```
+╭─────────────────────────────────────╮
+│         bulk-reminders              │
+│   Bulk add reminders from CSV       │
+╰─────────────────────────────────────╯
+
+Quick start:
+  bulk-reminders lists          Show available lists
+  bulk-reminders add file.csv   Add reminders from CSV
+
+Docs: https://github.com/dill-pickles/bulk-reminders
+```
+
+**Implementation options:**
+- `bulk-reminders --version` or `bulk-reminders` with no args shows welcome
+- First-run detection (store flag in ~/.config or similar)
+- Post-install hook if using Homebrew
+
+---
+
 ## Code Map (bulk-reminders)
 
 | Lines | Function | Purpose |
