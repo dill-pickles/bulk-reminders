@@ -25,7 +25,7 @@ No dependencies required - uses only Python 3 standard library and macOS built-i
 
 ## Quick Start
 
-1. Create a CSV file with your reminders:
+1. Format your data as CSV (export from Excel, Google Sheets, or any spreadsheet):
 
 ```csv
 title,due_date,notes
