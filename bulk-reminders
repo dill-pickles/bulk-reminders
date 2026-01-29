@@ -6,11 +6,43 @@ import csv
 import re
 import subprocess
 import sys
+import threading
+import time
 from datetime import datetime
 
 
 DATE_FORMAT = "%Y-%m-%d %H:%M"
 DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
+
+
+class Spinner:
+    """Simple spinner animation for long-running operations."""
+
+    def __init__(self, message=""):
+        self.message = message
+        self.chars = "|/-\\"
+        self._stop = threading.Event()
+        self._thread = None
+
+    def _spin(self):
+        idx = 0
+        while not self._stop.is_set():
+            char = self.chars[idx % len(self.chars)]
+            sys.stdout.write(f"\r  {self.message} {char}")
+            sys.stdout.flush()
+            idx += 1
+            time.sleep(0.1)
+
+    def start(self):
+        self._thread = threading.Thread(target=self._spin, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self._stop.set()
+        if self._thread:
+            self._thread.join()
+        sys.stdout.write("\r" + " " * (len(self.message) + 10) + "\r")
+        sys.stdout.flush()
 
 
 def get_reminder_lists():
@@ -253,8 +285,12 @@ def cmd_add(args):
         return
 
     # Actually add them (batch operation)
-    print(f"  Adding {len(valid_rows)} reminder(s)...", flush=True)
-    success, failures = add_reminders(target_list, valid_rows, dry_run=args.dry_run)
+    spinner = Spinner(f"Adding {len(valid_rows)} reminder(s)...")
+    spinner.start()
+    try:
+        success, failures = add_reminders(target_list, valid_rows, dry_run=args.dry_run)
+    finally:
+        spinner.stop()
 
     # Show results
     for i, r in enumerate(valid_rows, 1):

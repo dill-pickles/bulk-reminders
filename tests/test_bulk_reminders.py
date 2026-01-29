@@ -239,3 +239,18 @@ def test_add_shows_results_after_batch_not_fake_progress():
 
         # Results should show success markers
         assert "✓" in stdout or "✗" in stdout
+
+
+def test_spinner_starts_and_stops():
+    """Spinner should start and stop without errors."""
+    import time
+    bulk_reminders = get_module()
+
+    spinner = bulk_reminders.Spinner("Testing...")
+    spinner.start()
+    time.sleep(0.15)  # Let it cycle at least once
+    spinner.stop()
+
+    # Spinner should have cleaned up (thread joined)
+    assert spinner._stop.is_set()
+    assert not spinner._thread.is_alive()
