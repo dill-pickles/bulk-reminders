@@ -96,6 +96,65 @@ set seconds of d to 0
 
 ---
 
+## Code Map (bulk-reminders)
+
+| Lines | Function | Purpose |
+|-------|----------|---------|
+| 12-13 | Constants | `DATE_FORMAT`, `DATE_PATTERN` for validation |
+| 16-32 | `get_reminder_lists()` | Calls AppleScript to get list names. **Bug: doesn't see lists in folders** |
+| 35-85 | `validate_csv()` | Parses CSV, validates rows. **Fix needed: better error for wrong headers (line 49-50)** |
+| 88-92 | `escape_applescript_string()` | Escapes quotes/backslashes for AppleScript |
+| 95-119 | `build_applescript()` | Generates AppleScript to create reminders. **BUG: Line 110 - date string parsing fails on some locales** |
+| 122-145 | `add_reminders()` | Executes the AppleScript via osascript |
+| 148-166 | `prompt_list_selection()` | Interactive list picker |
+| 169-174 | `format_due_date()` | Formats dates for display |
+| 177-182 | `cmd_lists()` | Handler for `lists` command |
+| 185-262 | `cmd_add()` | Handler for `add` command (main flow) |
+| 265-290 | `main()` | CLI argument parsing |
+
+### The Date Bug Fix (Priority 1)
+
+**Problem:** Line 110 uses `date "{r["due_date"]}"` which is locale-dependent and fails.
+
+**Current code (line 109-110):**
+```python
+if r["due_date"]:
+    props = f'name:"{title}", due date:date "{r["due_date"]}", body:"{notes}"'
+```
+
+**Fix:** Replace with explicit date building. Change `build_applescript()` to generate:
+```applescript
+set d to current date
+set year of d to 2026
+set month of d to 3
+set day of d to 2
+set hours of d to 10
+set minutes of d to 0
+set seconds of d to 0
+make new reminder with properties {name:"Title", due date:d, body:"notes"}
+```
+
+This requires parsing the date in Python and generating AppleScript that sets each component.
+
+### The Header Error Fix (Priority 2)
+
+**Location:** Line 49-50 in `validate_csv()`
+
+**Current:**
+```python
+if "title" not in reader.fieldnames:
+    return [], ["CSV must have a 'title' column"]
+```
+
+**Fix:** Show what columns were found and what's expected:
+```python
+if "title" not in reader.fieldnames:
+    found = ", ".join(reader.fieldnames) if reader.fieldnames else "none"
+    return [], [f"CSV must have a 'title' column (found: {found}). Expected headers: title,due_date,notes"]
+```
+
+---
+
 ## How to Resume
 
 ```bash
@@ -112,3 +171,17 @@ To test manually:
 ```bash
 ./bulk-reminders add sample.csv --dry-run
 ```
+
+---
+
+## Test Coverage
+
+12 tests in `tests/test_bulk_reminders.py`:
+- CLI argument parsing (3 tests)
+- `get_reminder_lists()` (1 test)
+- `validate_csv()` (3 tests) - valid file, invalid date, missing title
+- `prompt_list_selection()` (3 tests) - default, number, invalid input
+- `escape_applescript_string()` (1 test)
+- `build_applescript()` (1 test)
+
+**Note:** After fixing the date bug, update `test_build_applescript_basic` to match new AppleScript format.
