@@ -121,3 +121,35 @@ def test_prompt_list_selection_invalid_then_valid():
         result = bulk_reminders.prompt_list_selection(lists)
 
     assert result == "Reminders"
+
+
+def test_escape_applescript_string():
+    """escape_applescript_string should escape quotes and backslashes."""
+    bulk_reminders = get_module()
+
+    assert bulk_reminders.escape_applescript_string('hello') == 'hello'
+    assert bulk_reminders.escape_applescript_string('say "hi"') == 'say \\"hi\\"'
+    assert bulk_reminders.escape_applescript_string('back\\slash') == 'back\\\\slash'
+    assert bulk_reminders.escape_applescript_string('both "and" \\') == 'both \\"and\\" \\\\'
+
+
+def test_build_applescript_basic():
+    """build_applescript should generate valid AppleScript."""
+    bulk_reminders = get_module()
+
+    reminders = [
+        {"title": "Test item", "due_date": "2026-03-02 10:00", "notes": "some notes"},
+        {"title": "No date", "due_date": None, "notes": None},
+    ]
+
+    script = bulk_reminders.build_applescript("Work", reminders)
+
+    assert 'tell list "Work"' in script
+    assert 'name:"Test item"' in script
+    assert 'due date:date "2026-03-02 10:00"' in script
+    assert 'body:"some notes"' in script
+    assert 'name:"No date"' in script
+    # Second item should not have due date property
+    lines = script.split("\n")
+    no_date_line = [l for l in lines if 'name:"No date"' in l][0]
+    assert "due date:" not in no_date_line

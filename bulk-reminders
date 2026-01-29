@@ -85,6 +85,66 @@ def validate_csv(csv_path):
     return valid_rows, errors
 
 
+def escape_applescript_string(s):
+    """Escape a string for use in AppleScript."""
+    if s is None:
+        return ""
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def build_applescript(list_name, reminders):
+    """
+    Build AppleScript to add multiple reminders.
+    Returns the script as a string.
+    """
+    lines = [
+        'tell application "Reminders"',
+        f'    tell list "{escape_applescript_string(list_name)}"',
+    ]
+
+    for r in reminders:
+        title = escape_applescript_string(r["title"])
+        notes = escape_applescript_string(r["notes"]) or ""
+
+        if r["due_date"]:
+            props = f'name:"{title}", due date:date "{r["due_date"]}", body:"{notes}"'
+        else:
+            props = f'name:"{title}", body:"{notes}"'
+
+        lines.append(f"        make new reminder with properties {{{props}}}")
+
+    lines.append("    end tell")
+    lines.append("end tell")
+
+    return "\n".join(lines)
+
+
+def add_reminders(list_name, reminders, dry_run=False):
+    """
+    Add reminders to the specified list.
+    Returns (success_count, failures) where failures is a list of error messages.
+    """
+    if not reminders:
+        return 0, []
+
+    script = build_applescript(list_name, reminders)
+
+    if dry_run:
+        return len(reminders), []
+
+    result = subprocess.run(
+        ["osascript", "-e", script],
+        capture_output=True,
+        text=True
+    )
+
+    if result.returncode != 0:
+        # If the whole batch fails, report it
+        return 0, [f"AppleScript error: {result.stderr.strip()}"]
+
+    return len(reminders), []
+
+
 def prompt_list_selection(lists):
     """Prompt user to select a list by number. Returns list name."""
     print("Available lists:")
