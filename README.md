@@ -2,39 +2,153 @@
 
 A macOS CLI tool to bulk add reminders to Apple Reminders from a CSV file.
 
-## Usage
+## Installation
 
 ```bash
-# List available Reminders lists
-./bulk-reminders lists
+# Clone the repository
+git clone https://github.com/dill-pickles/bulk-reminders.git
+cd bulk-reminders
 
-# Add reminders from CSV (prompts for list selection)
-./bulk-reminders add tasks.csv
+# Make the script executable (if not already)
+chmod +x bulk-reminders
 
-# Add to a specific list
-./bulk-reminders add tasks.csv --list Work
-
-# Preview what would be added (dry run)
-./bulk-reminders add tasks.csv --dry-run
+# Optionally, add to your PATH for global access
+cp bulk-reminders /usr/local/bin/
 ```
 
-## CSV Format
+No dependencies required - uses only Python 3 standard library and macOS built-in tools.
+
+## Quick Start
+
+1. Create a CSV file with your reminders:
 
 ```csv
 title,due_date,notes
 Buy groceries,2026-03-02 10:00,Don't forget milk
 Call dentist,,
-"Meeting prep, slides",2026-03-06 09:00,"Review Q1 numbers"
+Finish report,2026-03-15 17:00,Q1 summary
 ```
 
-- **title** (required): Reminder title
-- **due_date** (optional): Format `YYYY-MM-DD HH:MM` in local time
-- **notes** (optional): Additional notes
+2. Run the tool:
 
-See `sample.csv` for an example.
+```bash
+./bulk-reminders add my-reminders.csv
+```
+
+3. Select which Reminders list to add to (or press Enter for default).
+
+That's it! Your reminders are now in Apple Reminders.
+
+## Usage
+
+### List available Reminders lists
+
+```bash
+./bulk-reminders lists
+```
+
+Output:
+```
+Available lists:
+  1. Reminders
+  2. Work
+  3. Shopping
+```
+
+### Add reminders from a CSV file
+
+```bash
+# Interactive - prompts you to select a list
+./bulk-reminders add tasks.csv
+
+# Specify the list directly
+./bulk-reminders add tasks.csv --list Work
+
+# Preview what would be added (no changes made)
+./bulk-reminders add tasks.csv --dry-run
+```
+
+### Example output
+
+```
+Validating tasks.csv...
+Found 3 valid reminder(s)
+
+Available lists:
+  1. Reminders
+  2. Work
+
+Select list [1]: 2
+
+Adding to "Work":
+  [1/3] ✓ Buy groceries (due: Mar 2 at 10:00 AM)
+  [2/3] ✓ Call dentist (no due date)
+  [3/3] ✓ Finish report (due: Mar 15 at 5:00 PM)
+
+Done: 3 added, 0 failed
+```
+
+## CSV Format
+
+Your CSV file needs a header row with column names. Only `title` is required.
+
+| Column | Required | Format | Example |
+|--------|----------|--------|---------|
+| `title` | Yes | Text | `Buy groceries` |
+| `due_date` | No | `YYYY-MM-DD HH:MM` | `2026-03-02 10:00` |
+| `notes` | No | Text | `Don't forget milk` |
+
+### Example CSV
+
+```csv
+title,due_date,notes
+Weekly review,2026-03-02 10:00,Review goals and progress
+Call mom,,Don't forget birthday
+"Dentist appointment, cleaning",2026-03-15 14:30,Bring insurance card
+Finish project,2026-03-20 17:00,"Wrap up documentation, send to team"
+```
+
+**Tips:**
+- Use quotes around fields that contain commas: `"Meeting prep, slides"`
+- Leave `due_date` empty for reminders without a specific time
+- Dates are interpreted in your local time zone
+
+See `sample.csv` for a complete example.
+
+## Validation
+
+The tool validates your CSV before adding anything:
+
+- Checks that `title` column exists
+- Skips rows with empty titles
+- Validates date format (`YYYY-MM-DD HH:MM`)
+- Catches invalid dates (like February 30th)
+
+If there are validation errors, you'll see them before any reminders are added:
+
+```
+Validating tasks.csv...
+
+  ⚠ Row 3: Empty title, skipping
+  ⚠ Row 5: Invalid date format "March 5th" (expected YYYY-MM-DD HH:MM)
+
+Found 8 valid reminder(s) (2 skipped)
+Continue? [Y/n]:
+```
 
 ## Requirements
 
-- macOS with Reminders app
-- Python 3
-- First run may prompt for Reminders app access
+- **macOS** (uses AppleScript to communicate with Reminders)
+- **Python 3** (pre-installed on macOS)
+- **Reminders app** access (you'll be prompted on first run)
+
+## First Run
+
+The first time you run the tool, macOS will ask for permission to control the Reminders app. Click "OK" to allow access.
+
+If you accidentally denied access, you can fix it in:
+**System Preferences → Privacy & Security → Automation → Terminal** (or your terminal app)
+
+## License
+
+MIT
