@@ -105,26 +105,12 @@ curl -fsSL https://raw.githubusercontent.com/dill-pickles/bulk-reminders/main/bu
 
 ## Remaining Items
 
-### 6. BUG: Quick install curl command returns 404
-**Status:** Not started
+### 6. NOTE: Quick install curl command requires public repo
+**Status:** Expected behavior (repo is currently private)
 
-**Problem:** The curl one-liner in README fails with `curl: (56) The requested URL returned error: 404`
+**Problem:** The curl one-liner in README fails with 404 because `raw.githubusercontent.com` requires public repos.
 
-**Command that fails:**
-```bash
-curl -fsSL https://raw.githubusercontent.com/dill-pickles/bulk-reminders/main/bulk-reminders -o /usr/local/bin/bulk-reminders
-```
-
-**Possible causes:**
-- Repository is private (raw.githubusercontent.com requires public repo)
-- Branch name mismatch (`main` vs `master`)
-- File path incorrect
-- Repo not yet pushed to GitHub
-
-**To investigate:**
-- Verify repo visibility on GitHub
-- Check actual branch name: `git branch -r`
-- Test URL in browser
+**Resolution:** Will work automatically once repo is made public. No code changes needed.
 
 **Location:** `README.md`, Installation section
 
