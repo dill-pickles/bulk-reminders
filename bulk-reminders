@@ -85,6 +85,27 @@ def validate_csv(csv_path):
     return valid_rows, errors
 
 
+def prompt_list_selection(lists):
+    """Prompt user to select a list by number. Returns list name."""
+    print("Available lists:")
+    for i, name in enumerate(lists, 1):
+        print(f"  {i}. {name}")
+
+    while True:
+        try:
+            choice = input(f"\nSelect list [1]: ").strip()
+            if choice == "":
+                return lists[0]
+
+            idx = int(choice) - 1
+            if 0 <= idx < len(lists):
+                return lists[idx]
+            else:
+                print(f"Please enter a number between 1 and {len(lists)}")
+        except ValueError:
+            print(f"Please enter a number between 1 and {len(lists)}")
+
+
 def cmd_lists(args):
     """List available Reminders lists."""
     lists = get_reminder_lists()

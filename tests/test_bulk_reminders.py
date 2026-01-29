@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 from importlib import import_module
+from unittest.mock import patch
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 
@@ -87,3 +88,36 @@ def test_validate_csv_missing_title():
     assert len(valid_rows) == 1
     assert len(errors) == 1
     assert "title" in errors[0].lower()
+
+
+def test_prompt_list_selection_with_default():
+    """prompt_list_selection should return first list on empty input."""
+    bulk_reminders = get_module()
+    lists = ["Reminders", "Work", "Shopping"]
+
+    with patch("builtins.input", return_value=""):
+        result = bulk_reminders.prompt_list_selection(lists)
+
+    assert result == "Reminders"
+
+
+def test_prompt_list_selection_with_number():
+    """prompt_list_selection should return selected list by number."""
+    bulk_reminders = get_module()
+    lists = ["Reminders", "Work", "Shopping"]
+
+    with patch("builtins.input", return_value="2"):
+        result = bulk_reminders.prompt_list_selection(lists)
+
+    assert result == "Work"
+
+
+def test_prompt_list_selection_invalid_then_valid():
+    """prompt_list_selection should re-prompt on invalid input."""
+    bulk_reminders = get_module()
+    lists = ["Reminders", "Work"]
+
+    with patch("builtins.input", side_effect=["99", "abc", "1"]):
+        result = bulk_reminders.prompt_list_selection(lists)
+
+    assert result == "Reminders"
