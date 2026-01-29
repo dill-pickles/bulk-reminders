@@ -37,5 +37,6 @@ env/
 # OS
 .DS_Store
 
-# Local docs
-docs/session-recap.md
+# Local docs (not tracked in repo)
+docs/project-status.md
+docs/changelog.md
