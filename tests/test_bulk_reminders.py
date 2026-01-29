@@ -90,6 +90,19 @@ def test_validate_csv_missing_title():
     assert "title" in errors[0].lower()
 
 
+def test_validate_csv_wrong_headers():
+    """validate_csv should show helpful error for wrong column names."""
+    bulk_reminders = get_module()
+    valid_rows, errors = bulk_reminders.validate_csv(os.path.join(FIXTURES, "wrong_headers.csv"))
+
+    assert len(valid_rows) == 0
+    assert len(errors) == 1
+    # Error should mention what was found
+    assert "Title" in errors[0] or "found" in errors[0].lower()
+    # Error should mention expected format
+    assert "title,due_date,notes" in errors[0].lower() or "expected" in errors[0].lower()
+
+
 def test_prompt_list_selection_with_default():
     """prompt_list_selection should return first list on empty input."""
     bulk_reminders = get_module()
@@ -146,9 +159,22 @@ def test_build_applescript_basic():
 
     assert 'tell list "Work"' in script
     assert 'name:"Test item"' in script
-    assert 'due date:date "2026-03-02 10:00"' in script
     assert 'body:"some notes"' in script
     assert 'name:"No date"' in script
+
+    # Date should be built explicitly (not string parsing) to avoid locale issues
+    # Must set each component: year, month, day, hours, minutes, seconds
+    assert 'set year of d to 2026' in script
+    assert 'set month of d to 3' in script
+    assert 'set day of d to 2' in script
+    assert 'set hours of d to 10' in script
+    assert 'set minutes of d to 0' in script
+    assert 'set seconds of d to 0' in script
+    assert 'due date:d' in script
+
+    # Should NOT use string-based date parsing (locale-dependent, causes bugs)
+    assert 'date "2026-03-02 10:00"' not in script
+
     # Second item should not have due date property
     lines = script.split("\n")
     no_date_line = [l for l in lines if 'name:"No date"' in l][0]

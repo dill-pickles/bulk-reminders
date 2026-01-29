@@ -47,7 +47,8 @@ def validate_csv(csv_path):
 
             # Check for required 'title' column
             if "title" not in reader.fieldnames:
-                return [], ["CSV must have a 'title' column"]
+                found = ", ".join(reader.fieldnames) if reader.fieldnames else "none"
+                return [], [f"CSV must have a 'title' column (found: {found}). Expected headers: title,due_date,notes"]
 
             for row_num, row in enumerate(reader, start=2):  # Row 1 is header
                 title = row.get("title", "").strip()
@@ -96,6 +97,10 @@ def build_applescript(list_name, reminders):
     """
     Build AppleScript to add multiple reminders.
     Returns the script as a string.
+
+    Note: Dates are built explicitly by setting each component (year, month, day,
+    hours, minutes, seconds) rather than using string parsing. This avoids
+    locale-dependent date parsing issues in AppleScript.
     """
     lines = [
         'tell application "Reminders"',
@@ -107,7 +112,17 @@ def build_applescript(list_name, reminders):
         notes = escape_applescript_string(r["notes"]) or ""
 
         if r["due_date"]:
-            props = f'name:"{title}", due date:date "{r["due_date"]}", body:"{notes}"'
+            # Parse the date in Python and build AppleScript that sets each component
+            # This avoids locale-dependent string parsing in AppleScript
+            dt = datetime.strptime(r["due_date"], DATE_FORMAT)
+            lines.append("        set d to current date")
+            lines.append(f"        set year of d to {dt.year}")
+            lines.append(f"        set month of d to {dt.month}")
+            lines.append(f"        set day of d to {dt.day}")
+            lines.append(f"        set hours of d to {dt.hour}")
+            lines.append(f"        set minutes of d to {dt.minute}")
+            lines.append("        set seconds of d to 0")
+            props = f'name:"{title}", due date:d, body:"{notes}"'
         else:
             props = f'name:"{title}", body:"{notes}"'
 
