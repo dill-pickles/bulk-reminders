@@ -166,6 +166,14 @@ def prompt_list_selection(lists):
             print(f"Please enter a number between 1 and {len(lists)}")
 
 
+def format_due_date(due_date):
+    """Format due date for display (e.g., 'Mar 2 at 10:00 AM')."""
+    if not due_date:
+        return "no due date"
+    dt = datetime.strptime(due_date, DATE_FORMAT)
+    return f"due: {dt.strftime('%b %-d at %-I:%M %p')}"
+
+
 def cmd_lists(args):
     """List available Reminders lists."""
     lists = get_reminder_lists()
@@ -176,7 +184,82 @@ def cmd_lists(args):
 
 def cmd_add(args):
     """Add reminders from CSV file."""
-    pass
+    # Validate CSV
+    print(f"Validating {args.csv_file}...")
+    valid_rows, errors = validate_csv(args.csv_file)
+
+    if errors:
+        print()
+        for err in errors:
+            print(f"  ⚠ {err}")
+        print()
+
+    if not valid_rows:
+        print("No valid reminders found.")
+        sys.exit(1)
+
+    skipped = len(errors)
+    print(f"Found {len(valid_rows)} valid reminder(s)" + (f" ({skipped} skipped)" if skipped else ""))
+
+    # Determine target list
+    lists = get_reminder_lists()
+
+    if args.list_name:
+        if args.list_name not in lists:
+            print(f"Error: List '{args.list_name}' not found.", file=sys.stderr)
+            print(f"Available lists: {', '.join(lists)}", file=sys.stderr)
+            sys.exit(1)
+        target_list = args.list_name
+    else:
+        print()
+        target_list = prompt_list_selection(lists)
+
+    # Confirm if there were validation errors
+    if errors and not args.dry_run:
+        try:
+            confirm = input("\nContinue? [Y/n]: ").strip().lower()
+            if confirm and confirm != "y":
+                print("Aborted.")
+                sys.exit(0)
+        except (EOFError, KeyboardInterrupt):
+            print("\nAborted.")
+            sys.exit(0)
+
+    # Add reminders
+    prefix = "[DRY RUN] " if args.dry_run else ""
+    print(f"\n{prefix}Adding to \"{target_list}\":")
+
+    # Show progress
+    for i, r in enumerate(valid_rows, 1):
+        due_str = format_due_date(r["due_date"])
+        print(f"  [{i}/{len(valid_rows)}] {'○' if args.dry_run else '...'} {r['title']} ({due_str})", end="" if not args.dry_run else "\n", flush=True)
+        if not args.dry_run:
+            print("\r", end="")  # Will overwrite with result
+
+    if args.dry_run:
+        print(f"\n{prefix}Done: {len(valid_rows)} would be added")
+        return
+
+    # Actually add them
+    success, failures = add_reminders(target_list, valid_rows, dry_run=args.dry_run)
+
+    # Re-print with results
+    print()  # Clear the progress line
+    for i, r in enumerate(valid_rows, 1):
+        due_str = format_due_date(r["due_date"])
+        if failures:
+            print(f"  [{i}/{len(valid_rows)}] ✗ {r['title']} ({due_str})")
+        else:
+            print(f"  [{i}/{len(valid_rows)}] ✓ {r['title']} ({due_str})")
+
+    # Summary
+    failed = len(failures)
+    print(f"\nDone: {success} added, {failed} failed" + (f", {skipped} skipped (validation)" if skipped else ""))
+
+    if failures:
+        for f in failures:
+            print(f"  Error: {f}", file=sys.stderr)
+        sys.exit(1)
 
 
 def main():
