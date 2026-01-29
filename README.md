@@ -4,12 +4,17 @@ A macOS CLI tool to bulk add reminders to Apple Reminders from a CSV file.
 
 ## Installation
 
+### Quick install (recommended)
+
 ```bash
-# Clone the repository
+curl -fsSL https://raw.githubusercontent.com/dill-pickles/bulk-reminders/main/bulk-reminders -o /usr/local/bin/bulk-reminders && chmod +x /usr/local/bin/bulk-reminders
+```
+
+### Or clone the repository
+
+```bash
 git clone https://github.com/dill-pickles/bulk-reminders.git
 cd bulk-reminders
-
-# Make the script executable (if not already)
 chmod +x bulk-reminders
 
 # Optionally, add to your PATH for global access
@@ -113,7 +118,7 @@ Finish project,2026-03-20 17:00,"Wrap up documentation, send to team"
 - Leave `due_date` empty for reminders without a specific time
 - Dates are interpreted in your local time zone
 
-See `sample.csv` for a complete example.
+**[Download sample.csv template](https://raw.githubusercontent.com/dill-pickles/bulk-reminders/main/sample.csv)** - Right-click → Save As
 
 ## Validation
 
@@ -148,6 +153,10 @@ The first time you run the tool, macOS will ask for permission to control the Re
 
 If you accidentally denied access, you can fix it in:
 **System Preferences → Privacy & Security → Automation → Terminal** (or your terminal app)
+
+## Known Limitations
+
+- **Lists in folders:** Reminder lists nested inside folders in the Reminders app may not appear in the list selection. Move lists out of folders if they don't show up.
 
 ## License
 

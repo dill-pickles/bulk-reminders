@@ -18,7 +18,7 @@ A macOS CLI tool that bulk adds reminders to Apple Reminders from a CSV file.
 - Single Python 3 script, no external dependencies
 - Uses AppleScript via `osascript` for Reminders integration
 - Batches all reminders into single AppleScript call for performance
-- 13 passing tests
+- 15 passing tests
 
 ### Files
 ```
@@ -68,57 +68,57 @@ CSV must have a 'title' column (found: Title, Due Date, Notes). Expected headers
 
 ---
 
-## Remaining Items (Priority Ordered)
+### ✅ Priority 3: Fixed Progress Counter Bug
+**Problem:** Progress counter showed `[52/52]` immediately for all items instead of incrementing.
 
-### 3. BUG: Progress counter shows total/total instead of current/total
-**Status:** Not started
+**Root cause:** The "show progress" loop ran before the batch `add_reminders()` call, printing all items rapidly with `\r` carriage return, so user only saw the last line. Misleading fake progress.
 
-**Problem:** The progress counter shows `[52/52]` immediately on the first item, before any reminders have been added. It should start at `[1/52]` and increment.
+**Fix:** Removed fake progress loop. Now shows "Adding N reminder(s)..." during batch operation, then displays each result with `[1/N] ✓` after completion.
 
-**Current behavior:**
-```
-[52/52] ... Insurance Due / Kailey + Matt (due: Sep 25 at 10:00 AM)
-```
-
-**Expected behavior:**
-```
-[1/52] Adding: Insurance Due / Kailey + Matt (due: Sep 25 at 10:00 AM)... ✓
-[2/52] Adding: Next reminder title...
-```
-
-**Likely cause:** Loop index or counter variable is wrong—probably showing `total/total` instead of `current/total`.
-
-**Location to investigate:** `cmd_add()` function, lines 199-276 (look for the progress display loop around lines 247-267)
+**Location:** `cmd_add()` function, lines 243-265
 
 ---
 
-### 4. ENHANCEMENT: Add CSV template to README
-**Status:** Not started
+### ✅ Priority 4: Added CSV Template Download Link
+**Task:** Added a downloadable CSV template link to README.
 
-**Task:** Add a downloadable CSV template link to README so users know the exact format.
+**Fix:** Added direct link to `sample.csv` in the CSV Format section:
+```markdown
+**[Download sample.csv template](https://raw.githubusercontent.com/dill-pickles/bulk-reminders/main/sample.csv)**
+```
 
----
-
-### 5. ENHANCEMENT: Easier installation
-**Status:** Not started
-
-**Problem:** Current install requires git clone + chmod.
-
-**Options to consider:**
-- **Homebrew tap:** `brew install dill-pickles/tap/bulk-reminders`
-- **Direct curl install:** `curl -sSL https://raw.githubusercontent.com/.../bulk-reminders | sudo tee /usr/local/bin/bulk-reminders`
-- **Release binaries:** GitHub Releases with download link
-
-**Recommended:** Homebrew tap or simple curl one-liner in README.
+**Location:** `README.md`, line 120
 
 ---
 
-### 6. ENHANCEMENT: Lists in folders not showing
-**Status:** Not started (low priority)
+### ✅ Priority 5: Added Easier Installation
+**Problem:** Previous install required git clone + chmod.
 
-**Problem:** Apple Reminders lists inside folders don't appear in CLI list selection.
+**Fix:** Added curl one-liner as recommended install method:
+```bash
+curl -fsSL https://raw.githubusercontent.com/dill-pickles/bulk-reminders/main/bulk-reminders -o /usr/local/bin/bulk-reminders && chmod +x /usr/local/bin/bulk-reminders
+```
 
-**Likely cause:** AppleScript `get name of every list` may not traverse folder hierarchy.
+**Location:** `README.md`, Installation section
+
+---
+
+## Remaining Items
+
+### 6. BUG: Lists in folders not showing
+**Status:** Needs further investigation
+
+**Problem:** Apple Reminders lists nested inside folders may not appear in CLI list selection.
+
+**Initial investigation:**
+- Tested `get name of every list` - returns all lists from all accounts (iCloud + Local)
+- All 6 lists on test system appeared correctly in CLI
+- Lists across multiple accounts (iCloud, Local) are properly returned
+- macOS Ventura's visual "folder grouping" feature may not be fully exposed via AppleScript API
+
+**Workaround documented:** Added note to README advising users to move lists out of folders if they don't appear.
+
+**Next steps:** Reproduce with lists actually nested in folders (not just multiple accounts). May need to investigate AppleScript's handling of Reminders folder hierarchy.
 
 **Location to investigate:** `get_reminder_lists()` function, lines 16-32
 
@@ -137,8 +137,8 @@ CSV must have a 'title' column (found: Title, Due Date, Notes). Expected headers
 | 162-180 | `prompt_list_selection()` | Interactive list picker |
 | 183-188 | `format_due_date()` | Formats dates for display |
 | 191-196 | `cmd_lists()` | Handler for `lists` command |
-| 199-276 | `cmd_add()` | Handler for `add` command (main flow) |
-| 279-304 | `main()` | CLI argument parsing |
+| 199-271 | `cmd_add()` | Handler for `add` command (main flow). ✅ Fixed: progress display |
+| 274-299 | `main()` | CLI argument parsing |
 
 ---
 
@@ -164,10 +164,11 @@ To test manually:
 
 ## Test Coverage
 
-13 tests in `tests/test_bulk_reminders.py`:
+15 tests in `tests/test_bulk_reminders.py`:
 - CLI argument parsing (3 tests)
 - `get_reminder_lists()` (1 test)
 - `validate_csv()` (4 tests) - valid file, invalid date, missing title, wrong headers
 - `prompt_list_selection()` (3 tests) - default, number, invalid input
 - `escape_applescript_string()` (1 test)
 - `build_applescript()` (1 test) - verifies explicit date building
+- Progress display (2 tests) - dry-run incremental counts, results after batch

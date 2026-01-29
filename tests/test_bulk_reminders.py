@@ -179,3 +179,63 @@ def test_build_applescript_basic():
     lines = script.split("\n")
     no_date_line = [l for l in lines if 'name:"No date"' in l][0]
     assert "due date:" not in no_date_line
+
+
+def test_dry_run_progress_shows_incremental_counts():
+    """Dry run should show progress as [1/N], [2/N], etc., not [N/N] for all."""
+    result = subprocess.run(
+        [sys.executable, "bulk-reminders", "add",
+         os.path.join(FIXTURES, "valid.csv"),
+         "--dry-run", "--list", "Reminders"],
+        capture_output=True,
+        text=True
+    )
+
+    # Should show incremental progress: [1/3], [2/3], [3/3]
+    assert "[1/3]" in result.stdout
+    assert "[2/3]" in result.stdout
+    assert "[3/3]" in result.stdout
+
+
+def test_add_shows_results_after_batch_not_fake_progress():
+    """Non-dry-run should show results after batch, not misleading progress before."""
+    import io
+    from contextlib import redirect_stdout
+    from argparse import Namespace
+
+    bulk_reminders = get_module()
+
+    # Mock add_reminders to avoid actual AppleScript call
+    with patch.object(bulk_reminders, 'add_reminders', return_value=(3, [])) as mock_add, \
+         patch.object(bulk_reminders, 'get_reminder_lists', return_value=['Reminders', 'Work']), \
+         patch.object(bulk_reminders, 'validate_csv', return_value=([
+             {"title": "Item 1", "due_date": "2026-03-02 10:00", "notes": ""},
+             {"title": "Item 2", "due_date": None, "notes": ""},
+             {"title": "Item 3", "due_date": "2026-03-15 14:30", "notes": ""},
+         ], [])):
+
+        args = Namespace(
+            csv_file="test.csv",
+            list_name="Reminders",
+            dry_run=False
+        )
+
+        output = io.StringIO()
+        with redirect_stdout(output):
+            bulk_reminders.cmd_add(args)
+
+        stdout = output.getvalue()
+
+        # Should show each item with result marker (✓ or ✗) ONCE
+        # Count occurrences of progress markers
+        count_1 = stdout.count("[1/3]")
+        count_2 = stdout.count("[2/3]")
+        count_3 = stdout.count("[3/3]")
+
+        # Each should appear exactly once (in the results section)
+        assert count_1 == 1, f"[1/3] appeared {count_1} times, expected 1"
+        assert count_2 == 1, f"[2/3] appeared {count_2} times, expected 1"
+        assert count_3 == 1, f"[3/3] appeared {count_3} times, expected 1"
+
+        # Results should show success markers
+        assert "✓" in stdout or "✗" in stdout

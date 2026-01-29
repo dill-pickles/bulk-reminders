@@ -244,22 +244,19 @@ def cmd_add(args):
     prefix = "[DRY RUN] " if args.dry_run else ""
     print(f"\n{prefix}Adding to \"{target_list}\":")
 
-    # Show progress
-    for i, r in enumerate(valid_rows, 1):
-        due_str = format_due_date(r["due_date"])
-        print(f"  [{i}/{len(valid_rows)}] {'○' if args.dry_run else '...'} {r['title']} ({due_str})", end="" if not args.dry_run else "\n", flush=True)
-        if not args.dry_run:
-            print("\r", end="")  # Will overwrite with result
-
     if args.dry_run:
+        # Show each item for dry run preview
+        for i, r in enumerate(valid_rows, 1):
+            due_str = format_due_date(r["due_date"])
+            print(f"  [{i}/{len(valid_rows)}] {r['title']} ({due_str})")
         print(f"\n{prefix}Done: {len(valid_rows)} would be added")
         return
 
-    # Actually add them
+    # Actually add them (batch operation)
+    print(f"  Adding {len(valid_rows)} reminder(s)...", flush=True)
     success, failures = add_reminders(target_list, valid_rows, dry_run=args.dry_run)
 
-    # Re-print with results
-    print()  # Clear the progress line
+    # Show results
     for i, r in enumerate(valid_rows, 1):
         due_str = format_due_date(r["due_date"])
         if failures:
