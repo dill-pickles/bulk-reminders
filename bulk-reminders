@@ -2,12 +2,35 @@
 """Bulk add reminders to Apple Reminders from a CSV file."""
 
 import argparse
+import subprocess
 import sys
+
+
+def get_reminder_lists():
+    """Get all available Reminders list names via AppleScript."""
+    script = 'tell application "Reminders" to get name of every list'
+    result = subprocess.run(
+        ["osascript", "-e", script],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        print(f"Error getting lists: {result.stderr}", file=sys.stderr)
+        sys.exit(1)
+
+    # AppleScript returns comma-separated list
+    raw = result.stdout.strip()
+    if not raw:
+        return []
+    return [name.strip() for name in raw.split(", ")]
 
 
 def cmd_lists(args):
     """List available Reminders lists."""
-    pass
+    lists = get_reminder_lists()
+    print("Available lists:")
+    for i, name in enumerate(lists, 1):
+        print(f"  {i}. {name}")
 
 
 def cmd_add(args):
