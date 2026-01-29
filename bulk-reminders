@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""Bulk add reminders to Apple Reminders from a CSV file."""
+
+import argparse
+import sys
+
+
+def cmd_lists(args):
+    """List available Reminders lists."""
+    pass
+
+
+def cmd_add(args):
+    """Add reminders from CSV file."""
+    pass
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="bulk-reminders",
+        description="Bulk add reminders to Apple Reminders from a CSV file."
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # lists command
+    subparsers.add_parser("lists", help="Show available Reminders lists")
+
+    # add command
+    add_parser = subparsers.add_parser("add", help="Add reminders from CSV file")
+    add_parser.add_argument("csv_file", help="Path to CSV file")
+    add_parser.add_argument("--list", dest="list_name", help="Target Reminders list")
+    add_parser.add_argument("--dry-run", action="store_true", help="Preview without adding")
+
+    args = parser.parse_args()
+
+    if args.command == "lists":
+        cmd_lists(args)
+    elif args.command == "add":
+        cmd_add(args)
+
+
+if __name__ == "__main__":
+    main()
