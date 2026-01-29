@@ -14,6 +14,38 @@ from datetime import datetime
 DATE_FORMAT = "%Y-%m-%d %H:%M"
 DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
 
+# ANSI color codes
+CYAN = "\033[36m"
+RESET = "\033[0m"
+
+
+def print_welcome():
+    """Print the welcome header with tool info and commands."""
+    use_color = sys.stdout.isatty()
+    cyan = CYAN if use_color else ""
+    reset = RESET if use_color else ""
+
+    # Box is 80 chars wide
+    width = 78  # Inner width (80 - 2 for box edges)
+
+    # Content lines (2-space indent from box edge)
+    title_line = f"  {cyan}bulk-reminders{reset} · Add reminders to Apple Reminders from CSV"
+    cmd1_left = "  add <csv>   Add reminders from CSV"
+    cmd1_right = "dill-pickles/bulk-reminders  "  # 2-space margin from right edge
+    cmd2_line = "  lists       Show available lists"
+
+    # Calculate padding - account for ANSI codes not taking visual space
+    title_visual_len = len("  bulk-reminders · Add reminders to Apple Reminders from CSV")
+    title_padding = width - title_visual_len
+    cmd1_padding = width - len(cmd1_left) - len(cmd1_right)
+
+    print(f"╭{'─' * width}╮")
+    print(f"│{title_line}{' ' * title_padding}│")
+    print(f"│{' ' * width}│")
+    print(f"│{cmd1_left}{' ' * cmd1_padding}{cmd1_right}│")
+    print(f"│{cmd2_line}{' ' * (width - len(cmd2_line))}│")
+    print(f"╰{'─' * width}╯")
+
 
 class Spinner:
     """Simple spinner animation for long-running operations."""
@@ -311,6 +343,11 @@ def cmd_add(args):
 
 
 def main():
+    # Handle --help and no-args specially to show our welcome header
+    if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ["-h", "--help"]):
+        print_welcome()
+        sys.exit(0)
+
     parser = argparse.ArgumentParser(
         prog="bulk-reminders",
         description="Bulk add reminders to Apple Reminders from a CSV file."

@@ -11,15 +11,20 @@ def get_module():
     sys.path.insert(0, ".")
     return import_module("bulk-reminders".replace("-", "_"))
 
-def test_cli_no_args_shows_usage():
-    """CLI with no args should show usage and exit non-zero."""
+def test_cli_no_args_shows_welcome():
+    """CLI with no args should show welcome header and exit cleanly."""
     result = subprocess.run(
         [sys.executable, "bulk-reminders"],
         capture_output=True,
         text=True
     )
-    assert result.returncode != 0
-    assert "usage:" in result.stderr.lower()
+    assert result.returncode == 0
+    # Should show the welcome box with tool name and commands
+    assert "bulk-reminders" in result.stdout
+    assert "add <csv>" in result.stdout.lower() or "add" in result.stdout
+    assert "lists" in result.stdout
+    # Should have box drawing characters
+    assert "╭" in result.stdout or "┌" in result.stdout
 
 def test_cli_lists_command_exists():
     """CLI should accept 'lists' command."""
@@ -254,3 +259,63 @@ def test_spinner_starts_and_stops():
     # Spinner should have cleaned up (thread joined)
     assert spinner._stop.is_set()
     assert not spinner._thread.is_alive()
+
+
+def test_print_welcome_contains_expected_content():
+    """print_welcome should output header with tool name, tagline, and commands."""
+    import io
+    from contextlib import redirect_stdout
+
+    bulk_reminders = get_module()
+
+    output = io.StringIO()
+    with redirect_stdout(output):
+        bulk_reminders.print_welcome()
+
+    stdout = output.getvalue()
+
+    # Should contain tool name and tagline
+    assert "bulk-reminders" in stdout
+    assert "Apple Reminders" in stdout or "CSV" in stdout
+
+    # Should contain command reference
+    assert "add" in stdout
+    assert "lists" in stdout
+
+    # Should contain GitHub link
+    assert "dill-pickles/bulk-reminders" in stdout
+
+    # Should have box drawing
+    assert "╭" in stdout
+    assert "╰" in stdout
+
+
+def test_print_welcome_no_color_when_not_tty():
+    """print_welcome should not include ANSI codes when not a TTY."""
+    import io
+    from contextlib import redirect_stdout
+
+    bulk_reminders = get_module()
+
+    output = io.StringIO()
+    with redirect_stdout(output):
+        bulk_reminders.print_welcome()
+
+    stdout = output.getvalue()
+
+    # StringIO is not a TTY, so no ANSI escape codes should be present
+    assert "\033[" not in stdout
+    assert "\x1b[" not in stdout
+
+
+def test_cli_help_shows_welcome():
+    """CLI --help should show welcome header."""
+    result = subprocess.run(
+        [sys.executable, "bulk-reminders", "--help"],
+        capture_output=True,
+        text=True
+    )
+    assert result.returncode == 0
+    # Should show welcome box elements
+    assert "bulk-reminders" in result.stdout
+    assert "╭" in result.stdout or "┌" in result.stdout
