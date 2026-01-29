@@ -2,8 +2,15 @@
 """Bulk add reminders to Apple Reminders from a CSV file."""
 
 import argparse
+import csv
+import re
 import subprocess
 import sys
+from datetime import datetime
+
+
+DATE_FORMAT = "%Y-%m-%d %H:%M"
+DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
 
 
 def get_reminder_lists():
@@ -23,6 +30,59 @@ def get_reminder_lists():
     if not raw:
         return []
     return [name.strip() for name in raw.split(", ")]
+
+
+def validate_csv(csv_path):
+    """
+    Validate CSV file and return (valid_rows, errors).
+
+    Each valid row is a dict with keys: title, due_date (str or None), notes (str or None)
+    """
+    valid_rows = []
+    errors = []
+
+    try:
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+
+            # Check for required 'title' column
+            if "title" not in reader.fieldnames:
+                return [], ["CSV must have a 'title' column"]
+
+            for row_num, row in enumerate(reader, start=2):  # Row 1 is header
+                title = row.get("title", "").strip()
+                due_date = row.get("due_date", "").strip() or None
+                notes = row.get("notes", "").strip() or None
+
+                # Validate title
+                if not title:
+                    errors.append(f"Row {row_num}: Empty title, skipping")
+                    continue
+
+                # Validate due_date if provided
+                if due_date:
+                    if not DATE_PATTERN.match(due_date):
+                        errors.append(f"Row {row_num}: Invalid date format \"{due_date}\" (expected YYYY-MM-DD HH:MM)")
+                        continue
+                    # Also validate it's a real date
+                    try:
+                        datetime.strptime(due_date, DATE_FORMAT)
+                    except ValueError:
+                        errors.append(f"Row {row_num}: Invalid date \"{due_date}\"")
+                        continue
+
+                valid_rows.append({
+                    "title": title,
+                    "due_date": due_date,
+                    "notes": notes
+                })
+
+    except FileNotFoundError:
+        return [], [f"File not found: {csv_path}"]
+    except Exception as e:
+        return [], [f"Error reading CSV: {e}"]
+
+    return valid_rows, errors
 
 
 def cmd_lists(args):

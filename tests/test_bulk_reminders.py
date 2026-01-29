@@ -1,6 +1,14 @@
+import os
 import subprocess
 import sys
 from importlib import import_module
+
+FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
+
+
+def get_module():
+    sys.path.insert(0, ".")
+    return import_module("bulk-reminders".replace("-", "_"))
 
 def test_cli_no_args_shows_usage():
     """CLI with no args should show usage and exit non-zero."""
@@ -45,3 +53,37 @@ def test_get_reminder_lists_returns_list():
     # macOS always has at least one default list
     assert len(result) >= 1
     assert all(isinstance(name, str) for name in result)
+
+
+def test_validate_csv_valid_file():
+    """validate_csv should return valid rows and no errors for good CSV."""
+    bulk_reminders = get_module()
+    valid_rows, errors = bulk_reminders.validate_csv(os.path.join(FIXTURES, "valid.csv"))
+
+    assert len(valid_rows) == 3
+    assert len(errors) == 0
+    assert valid_rows[0]["title"] == "Buy groceries"
+    assert valid_rows[0]["due_date"] == "2026-03-02 10:00"
+    assert valid_rows[1]["due_date"] is None  # Empty due_date
+    assert valid_rows[2]["title"] == "Meeting, prep"  # Comma in title
+
+
+def test_validate_csv_invalid_date():
+    """validate_csv should report invalid date formats."""
+    bulk_reminders = get_module()
+    valid_rows, errors = bulk_reminders.validate_csv(os.path.join(FIXTURES, "invalid_date.csv"))
+
+    assert len(valid_rows) == 1  # Only the valid row
+    assert len(errors) == 1
+    assert "row 2" in errors[0].lower() or "row 3" in errors[0].lower()
+    assert "date" in errors[0].lower()
+
+
+def test_validate_csv_missing_title():
+    """validate_csv should report empty titles."""
+    bulk_reminders = get_module()
+    valid_rows, errors = bulk_reminders.validate_csv(os.path.join(FIXTURES, "missing_title.csv"))
+
+    assert len(valid_rows) == 1
+    assert len(errors) == 1
+    assert "title" in errors[0].lower()
