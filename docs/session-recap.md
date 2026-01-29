@@ -124,6 +124,39 @@ curl -fsSL https://raw.githubusercontent.com/dill-pickles/bulk-reminders/main/bu
 
 ---
 
+### 7. ENHANCEMENT: Re-think Quick Start section in README
+**Status:** Not started
+
+**Problem:** The Quick Start section awkwardly says "Create a CSV file" as step 1, showing terminal code block. This doesn't match the real use case.
+
+**Real use case:** User already has a spreadsheet/list of reminders (e.g., from Excel, Google Sheets, or a text file) and wants to bulk import them.
+
+**Ideas to explore:**
+- Lead with "Export your reminders to CSV" or "Prepare your CSV"
+- Show how to export from common sources (Excel, Google Sheets)
+- Make the CSV format requirements clearer upfront
+- Consider the workflow: user has data → formats as CSV → runs tool
+
+**Location:** `README.md`, Quick Start section
+
+---
+
+### 8. ENHANCEMENT: Easier CSV file selection
+**Status:** Not started (needs research)
+
+**Problem:** Users must type the full filepath to their CSV, which can be cumbersome.
+
+**Options to explore:**
+- **macOS file picker dialog:** Can AppleScript/osascript present a file chooser? Would need to call from Python.
+- **Drag-and-drop:** Terminal supports dragging files to insert path - document this as a tip?
+- **Current directory default:** If user runs from same directory as CSV, just `./bulk-reminders add myfile.csv` works
+- **Tab completion:** Already works in most shells - document as tip?
+- **Clipboard path:** Read path from clipboard? (probably overkill)
+
+**Research needed:** What's possible within a Python CLI on macOS for file selection UX?
+
+---
+
 ## Code Map (bulk-reminders)
 
 | Lines | Function | Purpose |
