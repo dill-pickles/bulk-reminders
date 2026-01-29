@@ -70,14 +70,36 @@ CSV must have a 'title' column (found: Title, Due Date, Notes). Expected headers
 
 ## Remaining Items (Priority Ordered)
 
-### 3. ENHANCEMENT: Add CSV template to README
+### 3. BUG: Progress counter shows total/total instead of current/total
+**Status:** Not started
+
+**Problem:** The progress counter shows `[52/52]` immediately on the first item, before any reminders have been added. It should start at `[1/52]` and increment.
+
+**Current behavior:**
+```
+[52/52] ... Insurance Due / Kailey + Matt (due: Sep 25 at 10:00 AM)
+```
+
+**Expected behavior:**
+```
+[1/52] Adding: Insurance Due / Kailey + Matt (due: Sep 25 at 10:00 AM)... ✓
+[2/52] Adding: Next reminder title...
+```
+
+**Likely cause:** Loop index or counter variable is wrong—probably showing `total/total` instead of `current/total`.
+
+**Location to investigate:** `cmd_add()` function, lines 199-276 (look for the progress display loop around lines 247-267)
+
+---
+
+### 4. ENHANCEMENT: Add CSV template to README
 **Status:** Not started
 
 **Task:** Add a downloadable CSV template link to README so users know the exact format.
 
 ---
 
-### 4. ENHANCEMENT: Easier installation
+### 5. ENHANCEMENT: Easier installation
 **Status:** Not started
 
 **Problem:** Current install requires git clone + chmod.
@@ -91,7 +113,7 @@ CSV must have a 'title' column (found: Title, Due Date, Notes). Expected headers
 
 ---
 
-### 5. ENHANCEMENT: Lists in folders not showing
+### 6. ENHANCEMENT: Lists in folders not showing
 **Status:** Not started (low priority)
 
 **Problem:** Apple Reminders lists inside folders don't appear in CLI list selection.
