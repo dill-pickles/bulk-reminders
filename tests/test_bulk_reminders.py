@@ -21,10 +21,29 @@ def test_cli_no_args_shows_welcome():
     assert result.returncode == 0
     # Should show the welcome box with tool name and commands
     assert "bulk-reminders" in result.stdout
-    assert "add <csv>" in result.stdout.lower() or "add" in result.stdout
+    assert "add" in result.stdout
     assert "lists" in result.stdout
     # Should have box drawing characters
-    assert "╭" in result.stdout or "┌" in result.stdout
+    assert "╭" in result.stdout
+
+
+def test_cli_lists_shows_header_first():
+    """CLI lists command should show header at top, then list output."""
+    result = subprocess.run(
+        [sys.executable, "bulk-reminders", "lists"],
+        capture_output=True,
+        text=True
+    )
+    assert result.returncode == 0
+    # Header should appear
+    assert "╭" in result.stdout
+    assert "bulk-reminders" in result.stdout
+    # Lists output should appear after header
+    assert "Available lists:" in result.stdout
+    # Header should come BEFORE the lists output
+    header_pos = result.stdout.find("╭")
+    lists_pos = result.stdout.find("Available lists:")
+    assert header_pos < lists_pos
 
 def test_cli_lists_command_exists():
     """CLI should accept 'lists' command."""
