@@ -1,6 +1,17 @@
 # bulk-reminders
 
+![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white)
+![Python 3](https://img.shields.io/badge/Python-3-blue?logo=python&logoColor=white)
+
 A macOS CLI tool to bulk add reminders to Apple Reminders from a CSV file.
+
+**Features:**
+- Batch import reminders from CSV (Excel, Google Sheets, etc.)
+- Native macOS file picker for easy file selection
+- Preserves due dates and notes
+- Dry-run mode to preview before adding
+- No external dependencies - just Python 3 and macOS
 
 ## Installation
 
@@ -22,6 +33,8 @@ cp bulk-reminders /usr/local/bin/
 ```
 
 No dependencies required - uses only Python 3 standard library and macOS built-in tools.
+
+---
 
 ## Quick Start
 
@@ -100,6 +113,8 @@ Adding to "Work":
 Done: 3 added, 0 failed
 ```
 
+---
+
 ## CSV Format
 
 Your CSV file needs a header row with column names. Only `title` is required.
@@ -127,6 +142,8 @@ Finish project,2026-03-20 17:00,"Wrap up documentation, send to team"
 
 **[Download sample.csv template](https://raw.githubusercontent.com/dill-pickles/bulk-reminders/main/sample.csv)** - Right-click → Save As
 
+---
+
 ## Validation
 
 The tool validates your CSV before adding anything:
@@ -148,6 +165,8 @@ Found 8 valid reminder(s) (2 skipped)
 Continue? [Y/n]:
 ```
 
+---
+
 ## Requirements
 
 - **macOS** (uses AppleScript to communicate with Reminders)
@@ -161,9 +180,13 @@ The first time you run the tool, macOS will ask for permission to control the Re
 If you accidentally denied access, you can fix it in:
 **System Preferences → Privacy & Security → Automation → Terminal** (or your terminal app)
 
+---
+
 ## Known Limitations
 
 - **Lists in folders:** Reminder lists nested inside folders in the Reminders app may not appear in the list selection. Move lists out of folders if they don't show up.
+
+---
 
 ## License
 
