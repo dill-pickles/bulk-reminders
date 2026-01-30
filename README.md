@@ -37,8 +37,10 @@ Finish report,2026-03-15 17:00,Q1 summary
 2. Run the tool:
 
 ```bash
-./bulk-reminders add my-reminders.csv
+./bulk-reminders add
 ```
+
+A file picker will open—select your CSV file.
 
 3. Select which Reminders list to add to (or press Enter for default).
 
@@ -63,15 +65,20 @@ Available lists:
 ### Add reminders from a CSV file
 
 ```bash
-# Interactive - prompts you to select a list
+# Opens a file picker to select your CSV
+./bulk-reminders add
+
+# Or provide the path directly
 ./bulk-reminders add tasks.csv
 
-# Specify the list directly
+# Specify the list directly (skips list selection prompt)
 ./bulk-reminders add tasks.csv --list Work
 
 # Preview what would be added (no changes made)
 ./bulk-reminders add tasks.csv --dry-run
 ```
+
+**Tip:** You can drag a file from Finder directly into the Terminal window to paste its path.
 
 ### Example output
 

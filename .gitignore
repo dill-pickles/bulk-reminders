@@ -38,5 +38,4 @@ env/
 .DS_Store
 
 # Local docs (not tracked in repo)
-docs/project-status.md
-docs/changelog.md
+docs/

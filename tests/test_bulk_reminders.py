@@ -4,6 +4,8 @@ import sys
 from importlib import import_module
 from unittest.mock import patch
 
+import pytest
+
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 
 
@@ -31,15 +33,17 @@ def test_cli_lists_command_exists():
     )
     assert result.returncode == 0
 
-def test_cli_add_command_requires_csv():
-    """CLI 'add' command should require a CSV file argument."""
+def test_cli_add_command_accepts_optional_csv():
+    """CLI 'add' command should accept csv_file as optional (file picker opens if omitted)."""
+    # Just verify the argument parsing accepts no csv_file
     result = subprocess.run(
-        [sys.executable, "bulk-reminders", "add"],
+        [sys.executable, "bulk-reminders", "add", "--help"],
         capture_output=True,
         text=True
     )
-    assert result.returncode != 0
-    assert "csv_file" in result.stderr.lower() or "required" in result.stderr.lower()
+    assert result.returncode == 0
+    # csv_file should be shown as optional in help (with [])
+    assert "[csv_file]" in result.stdout or "csv_file" in result.stdout
 
 
 def test_get_reminder_lists_returns_list():
@@ -255,5 +259,64 @@ def test_spinner_starts_and_stops():
     # Spinner should have cleaned up (thread joined)
     assert spinner._stop.is_set()
     assert not spinner._thread.is_alive()
+
+
+def test_prompt_file_selection_returns_path():
+    """prompt_file_selection should return the selected file path."""
+    bulk_reminders = get_module()
+
+    # Mock subprocess.run to simulate AppleScript returning a path
+    mock_result = type('Result', (), {
+        'returncode': 0,
+        'stdout': '/Users/test/reminders.csv\n',
+        'stderr': ''
+    })()
+
+    with patch.object(subprocess, 'run', return_value=mock_result) as mock_run:
+        result = bulk_reminders.prompt_file_selection()
+
+    assert result == '/Users/test/reminders.csv'
+    # Should have called osascript with choose file
+    call_args = mock_run.call_args
+    assert call_args[0][0][0] == 'osascript'
+    assert 'choose file' in call_args[0][0][2]
+
+
+def test_prompt_file_selection_exits_on_cancel():
+    """prompt_file_selection should exit when user cancels file picker."""
+    bulk_reminders = get_module()
+
+    # Mock subprocess.run to simulate user cancelling
+    mock_result = type('Result', (), {
+        'returncode': 1,
+        'stdout': '',
+        'stderr': 'User cancelled'
+    })()
+
+    with patch.object(subprocess, 'run', return_value=mock_result):
+        with pytest.raises(SystemExit):
+            bulk_reminders.prompt_file_selection()
+
+
+def test_cli_add_without_csv_opens_file_picker():
+    """CLI 'add' without csv_file should open file picker."""
+    bulk_reminders = get_module()
+
+    # Mock the file picker to return a test path
+    with patch.object(bulk_reminders, 'prompt_file_selection', return_value=os.path.join(FIXTURES, 'valid.csv')) as mock_picker, \
+         patch.object(bulk_reminders, 'get_reminder_lists', return_value=['Reminders']), \
+         patch.object(bulk_reminders, 'add_reminders', return_value=(3, [])):
+
+        from argparse import Namespace
+        args = Namespace(
+            csv_file=None,  # No CSV provided
+            list_name='Reminders',
+            dry_run=True
+        )
+
+        # Should call prompt_file_selection when csv_file is None
+        bulk_reminders.cmd_add(args)
+
+        mock_picker.assert_called_once()
 
 
