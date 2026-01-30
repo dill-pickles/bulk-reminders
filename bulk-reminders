@@ -1,0 +1,364 @@
+#!/usr/bin/env python3
+"""Bulk add reminders to Apple Reminders from a CSV file."""
+
+import argparse
+import csv
+import re
+import subprocess
+import sys
+import threading
+import time
+from datetime import datetime
+
+
+DATE_FORMAT = "%Y-%m-%d %H:%M"
+DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
+
+
+class Spinner:
+    """Simple spinner animation for long-running operations."""
+
+    def __init__(self, message=""):
+        self.message = message
+        self.chars = "|/-\\"
+        self._stop = threading.Event()
+        self._thread = None
+
+    def _spin(self):
+        idx = 0
+        while not self._stop.is_set():
+            char = self.chars[idx % len(self.chars)]
+            sys.stdout.write(f"\r  {self.message} {char}")
+            sys.stdout.flush()
+            idx += 1
+            time.sleep(0.1)
+
+    def start(self):
+        self._thread = threading.Thread(target=self._spin, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self._stop.set()
+        if self._thread:
+            self._thread.join()
+        sys.stdout.write("\r" + " " * (len(self.message) + 10) + "\r")
+        sys.stdout.flush()
+
+
+def get_reminder_lists():
+    """Get all available Reminders list names via AppleScript."""
+    script = 'tell application "Reminders" to get name of every list'
+    result = subprocess.run(
+        ["osascript", "-e", script],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        print(f"Error getting lists: {result.stderr}", file=sys.stderr)
+        sys.exit(1)
+
+    # AppleScript returns comma-separated list
+    raw = result.stdout.strip()
+    if not raw:
+        return []
+    return [name.strip() for name in raw.split(", ")]
+
+
+def validate_csv(csv_path):
+    """
+    Validate CSV file and return (valid_rows, errors).
+
+    Each valid row is a dict with keys: title, due_date (str or None), notes (str or None)
+    """
+    valid_rows = []
+    errors = []
+
+    try:
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+
+            # Check for required 'title' column
+            if "title" not in reader.fieldnames:
+                found = ", ".join(reader.fieldnames) if reader.fieldnames else "none"
+                return [], [f"CSV must have a 'title' column (found: {found}). Expected headers: title,due_date,notes"]
+
+            for row_num, row in enumerate(reader, start=2):  # Row 1 is header
+                title = row.get("title", "").strip()
+                due_date = row.get("due_date", "").strip() or None
+                notes = row.get("notes", "").strip() or None
+
+                # Validate title
+                if not title:
+                    errors.append(f"Row {row_num}: Empty title, skipping")
+                    continue
+
+                # Validate due_date if provided
+                if due_date:
+                    if not DATE_PATTERN.match(due_date):
+                        errors.append(f"Row {row_num}: Invalid date format \"{due_date}\" (expected YYYY-MM-DD HH:MM)")
+                        continue
+                    # Also validate it's a real date
+                    try:
+                        datetime.strptime(due_date, DATE_FORMAT)
+                    except ValueError:
+                        errors.append(f"Row {row_num}: Invalid date \"{due_date}\"")
+                        continue
+
+                valid_rows.append({
+                    "title": title,
+                    "due_date": due_date,
+                    "notes": notes
+                })
+
+    except FileNotFoundError:
+        return [], [f"File not found: {csv_path}"]
+    except Exception as e:
+        return [], [f"Error reading CSV: {e}"]
+
+    return valid_rows, errors
+
+
+def escape_applescript_string(s):
+    """Escape a string for use in AppleScript."""
+    if s is None:
+        return ""
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def build_applescript(list_name, reminders):
+    """
+    Build AppleScript to add multiple reminders.
+    Returns the script as a string.
+
+    Note: Dates are built explicitly by setting each component (year, month, day,
+    hours, minutes, seconds) rather than using string parsing. This avoids
+    locale-dependent date parsing issues in AppleScript.
+    """
+    lines = [
+        'tell application "Reminders"',
+        f'    tell list "{escape_applescript_string(list_name)}"',
+    ]
+
+    for r in reminders:
+        title = escape_applescript_string(r["title"])
+        notes = escape_applescript_string(r["notes"]) or ""
+
+        if r["due_date"]:
+            # Parse the date in Python and build AppleScript that sets each component
+            # This avoids locale-dependent string parsing in AppleScript
+            dt = datetime.strptime(r["due_date"], DATE_FORMAT)
+            lines.append("        set d to current date")
+            lines.append(f"        set year of d to {dt.year}")
+            lines.append(f"        set month of d to {dt.month}")
+            lines.append(f"        set day of d to {dt.day}")
+            lines.append(f"        set hours of d to {dt.hour}")
+            lines.append(f"        set minutes of d to {dt.minute}")
+            lines.append("        set seconds of d to 0")
+            props = f'name:"{title}", due date:d, body:"{notes}"'
+        else:
+            props = f'name:"{title}", body:"{notes}"'
+
+        lines.append(f"        make new reminder with properties {{{props}}}")
+
+    lines.append("    end tell")
+    lines.append("end tell")
+
+    return "\n".join(lines)
+
+
+def add_reminders(list_name, reminders, dry_run=False):
+    """
+    Add reminders to the specified list.
+    Returns (success_count, failures) where failures is a list of error messages.
+    """
+    if not reminders:
+        return 0, []
+
+    script = build_applescript(list_name, reminders)
+
+    if dry_run:
+        return len(reminders), []
+
+    result = subprocess.run(
+        ["osascript", "-e", script],
+        capture_output=True,
+        text=True
+    )
+
+    if result.returncode != 0:
+        # If the whole batch fails, report it
+        return 0, [f"AppleScript error: {result.stderr.strip()}"]
+
+    return len(reminders), []
+
+
+def prompt_file_selection():
+    """Open macOS file picker dialog to select a CSV file. Returns file path."""
+    script = '''
+try
+    set theFile to choose file with prompt "Select a CSV file:" of type {"public.comma-separated-values-text", "public.text"}
+    return POSIX path of theFile
+on error
+    error "File selection cancelled"
+end try
+'''
+    result = subprocess.run(
+        ["osascript", "-e", script],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        print("File selection cancelled.")
+        sys.exit(0)
+    return result.stdout.strip()
+
+
+def prompt_list_selection(lists):
+    """Prompt user to select a list by number. Returns list name."""
+    print("Available lists:")
+    for i, name in enumerate(lists, 1):
+        print(f"  {i}. {name}")
+
+    while True:
+        try:
+            choice = input(f"\nSelect list [1]: ").strip()
+            if choice == "":
+                return lists[0]
+
+            idx = int(choice) - 1
+            if 0 <= idx < len(lists):
+                return lists[idx]
+            else:
+                print(f"Please enter a number between 1 and {len(lists)}")
+        except ValueError:
+            print(f"Please enter a number between 1 and {len(lists)}")
+
+
+def format_due_date(due_date):
+    """Format due date for display (e.g., 'Mar 2 at 10:00 AM')."""
+    if not due_date:
+        return "no due date"
+    dt = datetime.strptime(due_date, DATE_FORMAT)
+    return f"due: {dt.strftime('%b %-d at %-I:%M %p')}"
+
+
+def cmd_lists(args):
+    """List available Reminders lists."""
+    lists = get_reminder_lists()
+    print("Available lists:")
+    for i, name in enumerate(lists, 1):
+        print(f"  {i}. {name}")
+
+
+def cmd_add(args):
+    """Add reminders from CSV file."""
+    # Get CSV file path (from argument or file picker)
+    csv_file = args.csv_file
+    if csv_file is None:
+        csv_file = prompt_file_selection()
+
+    # Validate CSV
+    print(f"Validating {csv_file}...")
+    valid_rows, errors = validate_csv(csv_file)
+
+    if errors:
+        print()
+        for err in errors:
+            print(f"  ⚠ {err}")
+        print()
+
+    if not valid_rows:
+        print("No valid reminders found.")
+        sys.exit(1)
+
+    skipped = len(errors)
+    print(f"Found {len(valid_rows)} valid reminder(s)" + (f" ({skipped} skipped)" if skipped else ""))
+
+    # Determine target list
+    lists = get_reminder_lists()
+
+    if args.list_name:
+        if args.list_name not in lists:
+            print(f"Error: List '{args.list_name}' not found.", file=sys.stderr)
+            print(f"Available lists: {', '.join(lists)}", file=sys.stderr)
+            sys.exit(1)
+        target_list = args.list_name
+    else:
+        print()
+        target_list = prompt_list_selection(lists)
+
+    # Confirm if there were validation errors
+    if errors and not args.dry_run:
+        try:
+            confirm = input("\nContinue? [Y/n]: ").strip().lower()
+            if confirm and confirm != "y":
+                print("Aborted.")
+                sys.exit(0)
+        except (EOFError, KeyboardInterrupt):
+            print("\nAborted.")
+            sys.exit(0)
+
+    # Add reminders
+    prefix = "[DRY RUN] " if args.dry_run else ""
+    print(f"\n{prefix}Adding to \"{target_list}\":")
+
+    if args.dry_run:
+        # Show each item for dry run preview
+        for i, r in enumerate(valid_rows, 1):
+            due_str = format_due_date(r["due_date"])
+            print(f"  [{i}/{len(valid_rows)}] {r['title']} ({due_str})")
+        print(f"\n{prefix}Done: {len(valid_rows)} would be added")
+        return
+
+    # Actually add them (batch operation)
+    spinner = Spinner(f"Adding {len(valid_rows)} reminder(s)...")
+    spinner.start()
+    try:
+        success, failures = add_reminders(target_list, valid_rows, dry_run=args.dry_run)
+    finally:
+        spinner.stop()
+
+    # Show results
+    for i, r in enumerate(valid_rows, 1):
+        due_str = format_due_date(r["due_date"])
+        if failures:
+            print(f"  [{i}/{len(valid_rows)}] ✗ {r['title']} ({due_str})")
+        else:
+            print(f"  [{i}/{len(valid_rows)}] ✓ {r['title']} ({due_str})")
+
+    # Summary
+    failed = len(failures)
+    print(f"\nDone: {success} added, {failed} failed" + (f", {skipped} skipped (validation)" if skipped else ""))
+
+    if failures:
+        for f in failures:
+            print(f"  Error: {f}", file=sys.stderr)
+        sys.exit(1)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="bulk-reminders",
+        description="Bulk add reminders to Apple Reminders from a CSV file."
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # lists command
+    subparsers.add_parser("lists", help="Show available Reminders lists")
+
+    # add command
+    add_parser = subparsers.add_parser("add", help="Add reminders from CSV file")
+    add_parser.add_argument("csv_file", nargs="?", default=None, help="Path to CSV file (opens file picker if omitted)")
+    add_parser.add_argument("--list", dest="list_name", help="Target Reminders list")
+    add_parser.add_argument("--dry-run", action="store_true", help="Preview without adding")
+
+    args = parser.parse_args()
+
+    if args.command == "lists":
+        cmd_lists(args)
+    elif args.command == "add":
+        cmd_add(args)
+
+
+if __name__ == "__main__":
+    main()
